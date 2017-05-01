@@ -18,6 +18,8 @@ class ItemExplosionMenu: UIView {
     private weak var cloneOfContentView: UIView?
     private weak var windowContainerView: UIView?
 
+    private var itemViews: [UIView] = []
+
     required init?(coder aDecoder: NSCoder) {
         super.init(coder: aDecoder)
 
@@ -68,6 +70,32 @@ class ItemExplosionMenu: UIView {
             onLongPressBegan()
         } else if gesture.state == .ended {
             onLongPressEnded()
+        } else if gesture.state == .changed {
+            guard let window = UIApplication.shared.keyWindow else {
+                return
+            }
+
+            for (index, view) in itemViews.enumerated() {
+                let location = gesture.location(in: view)
+                    if view.point(inside: location, with: nil) {
+                    print("to dentro of view-\(index): \(location)")
+
+                    UIView.animate(withDuration: 0.3) {
+                        let scale: CGFloat = 1.2
+                        view.transform = CGAffineTransform(scaleX: scale, y: scale)
+                    }
+                } else {
+                    UIView.animate(withDuration: 0.1) {
+                        let scale: CGFloat = 1.0
+                        view.transform = CGAffineTransform(scaleX: scale, y: scale)
+                    }
+                }
+
+
+            }
+
+
+
         }
     }
 
@@ -150,6 +178,7 @@ class ItemExplosionMenu: UIView {
 
         var delay = 0.2
 
+        itemViews = []
         for (index, point) in points.enumerated() {
             let view = viewForItem(itemIndex: index)
 
@@ -159,6 +188,7 @@ class ItemExplosionMenu: UIView {
             view.frame = viewFrame
 
             windowContainerView?.addSubview(view)
+            itemViews.append(view)
 
             UIView.animate(withDuration: 0.4,
                     delay: delay,
