@@ -8,6 +8,16 @@
 
 import UIKit
 
+protocol ItemExplosionMenuDelegate: class {
+    func itemExplosionMenu(_ itemExplosionMenu: ItemExplosionMenu, didSelect itemView: UIView)
+    func radiusFor(itemExplosionMenu: ItemExplosionMenu) -> CGFloat
+    func itemExplosionMenu(_ itemExplosionMenu: ItemExplosionMenu, itemViewAt index: Int) -> UIView
+}
+
+protocol ItemExplosionMenuDataSource: class {
+    func numberOfItems(in itemExplosionMenu: ItemExplosionMenu) -> Int
+}
+
 class ItemExplosionMenu: UIView {
     private weak var circleHighlightView: UIView?
     private weak var backgroundView: UIView?
@@ -19,6 +29,9 @@ class ItemExplosionMenu: UIView {
     private weak var windowContainerView: UIView?
 
     private var itemViews: [UIView] = []
+
+    weak var delegate: ItemExplosionMenuDelegate?
+    weak var dataSource: ItemExplosionMenuDataSource?
 
     required init?(coder aDecoder: NSCoder) {
         super.init(coder: aDecoder)
@@ -92,7 +105,10 @@ class ItemExplosionMenu: UIView {
         animateAndRemoveCircleHighlight()
         animateHighlightedItemViewBackToNormalSize(gesture: gesture)
 
+        let selectedItemViews = highlightedItemViews(gesture: gesture)
+
         removeItemViews {
+            self.notifySelectionOfItems(itemViews: selectedItemViews)
             self.animateAndRemoveBackgroundView()
             self.removeCloneViews()
         }
@@ -289,7 +305,7 @@ class ItemExplosionMenu: UIView {
             let location = gesture.location(in: view)
             if view.point(inside: location, with: nil) {
                 UIView.animate(withDuration: 0.3) {
-                    let scale: CGFloat = 1.2
+                    let scale: CGFloat = 1.3
                     view.transform = CGAffineTransform(scaleX: scale, y: scale)
                 }
             } else {
@@ -371,7 +387,13 @@ class ItemExplosionMenu: UIView {
     }
 
     private func animateAndRemoveBackgroundView() {
-        backgroundView?.removeFromSuperview()
+        UIView.animate(withDuration: 0.1, animations: {
+            self.backgroundView?.alpha = 0.0
+        }, completion: { finished in
+            if finished {
+                self.backgroundView?.removeFromSuperview()
+            }
+         })
     }
 
     func contentView() -> UIView {
@@ -396,7 +418,13 @@ class ItemExplosionMenu: UIView {
     }
 
     func radius() -> CGFloat {
-        return 70.0
+        return 80.0
+    }
+
+    func notifySelectionOfItems(itemViews: [UIView]) {
+        if let selected = itemViews.first {
+            delegate?.itemExplosionMenu(self, didSelect: selected)
+        }
     }
 }
 
