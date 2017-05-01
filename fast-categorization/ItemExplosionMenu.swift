@@ -45,12 +45,12 @@ class ItemExplosionMenu: UIView {
         let constraintsAttributes: [NSLayoutAttribute] = [.top, .leading, .trailing, .bottom]
         let constraints = constraintsAttributes.map { (layoutAttribute) -> NSLayoutConstraint in
             NSLayoutConstraint(item: viewToAdd,
-                               attribute: layoutAttribute,
-                               relatedBy: NSLayoutRelation.equal,
-                               toItem: self,
-                               attribute: layoutAttribute,
-                               multiplier: 1.0,
-                               constant: 0.0)
+                    attribute: layoutAttribute,
+                    relatedBy: NSLayoutRelation.equal,
+                    toItem: self,
+                    attribute: layoutAttribute,
+                    multiplier: 1.0,
+                    constant: 0.0)
         }
 
         addConstraints(constraints)
@@ -72,10 +72,10 @@ class ItemExplosionMenu: UIView {
     }
 
     private func onLongPressBegan() {
-//        longPressing = true
-//        insertAndAnimateCircleHighlight()
-//        addAndAnimateBackgroundView()
-//        addCloneViews()
+        longPressing = true
+        insertAndAnimateCircleHighlight()
+        addAndAnimateBackgroundView()
+        addCloneViews()
         addItemViews()
     }
 
@@ -86,10 +86,6 @@ class ItemExplosionMenu: UIView {
         removeCloneViews()
     }
 
-    private func indexOfItem(n: Int, forTotal total: Int) -> Int {
-        return 0
-    }
-
     private func pointAtDegree(zeroPoint: CGPoint, degree: Int, radius: CGFloat) -> CGPoint {
         let x = zeroPoint.x + radius * cos(degree.degreesToRadians)
         let y = zeroPoint.y + radius * sin(degree.degreesToRadians)
@@ -98,43 +94,42 @@ class ItemExplosionMenu: UIView {
         return point
     }
 
-    private func addItemViews() {
+    private func centerPointAtWindow() -> CGPoint {
         guard let window = UIApplication.shared.keyWindow else {
-            return
+            return CGPoint.zero
         }
 
         let centerPoint = CGPoint(x: self.frame.width / 2, y: self.frame.height / 2)
         let zeroPoint = self.convert(centerPoint, to: window)
-        let r: CGFloat = 90
+        return zeroPoint
+    }
+
+    private func calculateItemPoints() -> [CGPoint] {
+        let zeroPoint = centerPointAtWindow()
+        let r = radius()
+        let quantityOfItems = numberOfItems()
 
         var points: [CGPoint] = []
 
-//        for index in 0...360 {
-//            let point = pointAtDegree(degree: index)
-//            points.append(point)
-//        }
+        let degreesByItem = 160 / (quantityOfItems - 1)
+        var evenNumberOfItemsOffset = 0
 
-        let numberOfItems = 7
-
-        let degreesByItem = 180 / (numberOfItems - 1)
-        var evenNumberOfItensOffset = 0
-
-        if numberOfItems % 2 == 0 {
-            evenNumberOfItensOffset = degreesByItem / 2
+        if quantityOfItems % 2 == 0 {
+            evenNumberOfItemsOffset = degreesByItem / 2
         } else {
             let point = pointAtDegree(zeroPoint: zeroPoint, degree: 0, radius: r)
             points.append(point)
         }
 
-        for index in 1...numberOfItems / 2 {
-            let degree = index * degreesByItem - 1 * evenNumberOfItensOffset
+        for index in 1...quantityOfItems / 2 {
+            let degree = index * degreesByItem - 1 * evenNumberOfItemsOffset
             let point = pointAtDegree(zeroPoint: zeroPoint, degree: degree, radius: r)
 
             points.append(point)
         }
 
-        for index in 1...numberOfItems / 2 {
-            let degree = -1 * index * degreesByItem + evenNumberOfItensOffset
+        for index in 1...quantityOfItems / 2 {
+            let degree = -1 * index * degreesByItem + evenNumberOfItemsOffset
             let point = pointAtDegree(zeroPoint: zeroPoint, degree: degree, radius: r)
 
             points.append(point)
@@ -144,13 +139,44 @@ class ItemExplosionMenu: UIView {
             return lpoint.y < rpoint.y
         })
 
-        let itemSize = CGSize(width: 20, height: 20)
+        return points
+    }
 
-        points.forEach { (point) in
-            let dot = UIView(frame: CGRect(x: point.x - itemSize.width / 2, y: point.y - itemSize.height / 2, width: itemSize.width, height: itemSize.height))
-            dot.layer.cornerRadius = itemSize.width / 2
-            dot.backgroundColor = UIColor.purple
-            window.addSubview(dot)
+    private func addItemViews() {
+        let centerPoint = centerPointAtWindow()
+        let points = calculateItemPoints()
+
+        let itemSize = CGSize(width: 40, height: 40)
+
+        var delay = 0.2
+
+        for (index, point) in points.enumerated() {
+            let view = viewForItem(itemIndex: index)
+
+            let viewOrigin = CGPoint(x: centerPoint.x - itemSize.width / 2, y: centerPoint.y - itemSize.height / 2)
+            var viewFrame = view.frame
+            viewFrame.origin = viewOrigin
+            view.frame = viewFrame
+
+            windowContainerView?.addSubview(view)
+
+            UIView.animate(withDuration: 0.4,
+                    delay: delay,
+                    usingSpringWithDamping: 0.5,
+                    initialSpringVelocity: 0.3,
+                    options: UIViewAnimationOptions.curveEaseInOut, animations: {
+
+                let size = view.frame.size
+                let endPosition = CGPoint(x: point.x - viewFrame.size.width / 2, y: point.y - itemSize.height / 2)
+                let endFrame = CGRect(origin: endPosition, size: size)
+
+                view.frame = endFrame
+
+            }, completion: { (finished) in
+
+            })
+
+            delay = delay + 0.05
         }
     }
 
@@ -162,14 +188,20 @@ class ItemExplosionMenu: UIView {
     }
 
     private func insertAndAnimateCircleHighlight() {
-        let circle = buildCircleHightlight()
-        cloneOfCircleHighlightView = buildCircleHightlight()
+        let circle = buildCircleHighlight()
+        cloneOfCircleHighlightView = buildCircleHighlight()
 
         self.superview?.addSubview(circle)
         circleHighlightView = circle
         self.superview?.sendSubview(toBack: circle)
 
-        UIView.animate(withDuration: 0.3, delay: 0.0, usingSpringWithDamping: 0.3, initialSpringVelocity: 0.7, options: UIViewAnimationOptions.curveEaseInOut, animations: {
+        UIView.animate(withDuration: 0.3,
+                delay: 0.0,
+                usingSpringWithDamping: 0.3,
+                initialSpringVelocity: 0.7,
+                options: UIViewAnimationOptions.curveEaseInOut,
+                animations: {
+
             let scale: CGFloat = 1.5
             circle.transform = CGAffineTransform(scaleX: scale, y: scale)
             self.cloneOfCircleHighlightView?.transform = CGAffineTransform(scaleX: scale, y: scale)
@@ -178,7 +210,7 @@ class ItemExplosionMenu: UIView {
         }
     }
 
-    private func buildCircleHightlight() -> UIView {
+    private func buildCircleHighlight() -> UIView {
         let circle = UIView(frame: self.frame)
         circle.layer.cornerRadius = circle.frame.size.width / 2
         circle.backgroundColor = UIColor.red
@@ -212,7 +244,7 @@ class ItemExplosionMenu: UIView {
         backgroundView.backgroundColor = UIColor.black
 
         backgroundView.alpha = 0.0
-        UIView.animate(withDuration: 0.2) { 
+        UIView.animate(withDuration: 0.2) {
             backgroundView.alpha = 0.2
         }
 
@@ -228,8 +260,8 @@ class ItemExplosionMenu: UIView {
 
     private func addCloneViews() {
         guard let window = UIApplication.shared.keyWindow,
-            let circleHighlightView = circleHighlightView,
-            let cloneOfCircleHighlightView = cloneOfCircleHighlightView else {
+              let circleHighlightView = circleHighlightView,
+              let cloneOfCircleHighlightView = cloneOfCircleHighlightView else {
             return
         }
 
@@ -264,12 +296,26 @@ class ItemExplosionMenu: UIView {
     func contentView() -> UIView {
         let view = UIView(frame: CGRect.zero)
 
-        view.backgroundColor = UIColor.yellow
+        view.backgroundColor = UIColor.blue
 
         return view
-
     }
 
+    func numberOfItems() -> Int {
+        return 5
+    }
+
+    func viewForItem(itemIndex: Int) -> UIView {
+        let viewRect = CGRect(x: 0, y: 0, width: 40, height: 40)
+        let view = UIView(frame: viewRect)
+        view.backgroundColor = UIColor.purple
+        view.layer.cornerRadius = viewRect.size.height / 2
+        return view
+    }
+
+    func radius() -> CGFloat {
+        return 70.0
+    }
 }
 
 extension Int {
