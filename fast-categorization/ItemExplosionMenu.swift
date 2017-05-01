@@ -69,24 +69,9 @@ class ItemExplosionMenu: UIView {
         if gesture.state == .began {
             onLongPressBegan()
         } else if gesture.state == .ended {
-            onLongPressEnded()
+            onLongPressEnded(gesture: gesture)
         } else if gesture.state == .changed {
-            for (index, view) in itemViews.enumerated() {
-                let location = gesture.location(in: view)
-                    if view.point(inside: location, with: nil) {
-                    print("to dentro of view-\(index): \(location)")
-
-                    UIView.animate(withDuration: 0.3) {
-                        let scale: CGFloat = 1.2
-                        view.transform = CGAffineTransform(scaleX: scale, y: scale)
-                    }
-                } else {
-                    UIView.animate(withDuration: 0.1) {
-                        let scale: CGFloat = 1.0
-                        view.transform = CGAffineTransform(scaleX: scale, y: scale)
-                    }
-                }
-            }
+            onLongPressChanged(gesture: gesture)
         }
     }
 
@@ -98,12 +83,17 @@ class ItemExplosionMenu: UIView {
         addItemViews()
     }
 
-    private func onLongPressEnded() {
+    private func onLongPressChanged(gesture: UILongPressGestureRecognizer) {
+        animateIncreaseOfHighlightedItemView(gesture: gesture)
+    }
+
+    private func onLongPressEnded(gesture: UILongPressGestureRecognizer) {
         longPressing = false
-        animateAndRemoveCircleHightlight()
-        animateAndRemoveBackgroundView()
+        animateAndRemoveCircleHighlight()
+        animateHighlightedItemViewBackToNormalSize(gesture: gesture)
 
         removeItemViews {
+            self.animateAndRemoveBackgroundView()
             self.removeCloneViews()
         }
     }
@@ -114,6 +104,17 @@ class ItemExplosionMenu: UIView {
 
         let point = CGPoint(x: x, y: y)
         return point
+    }
+
+    private func animateHighlightedItemViewBackToNormalSize(gesture: UILongPressGestureRecognizer) {
+        let items = highlightedItemViews(gesture: gesture)
+
+        for highlightedItemView in items {
+            UIView.animate(withDuration: 0.05) {
+                let scale: CGFloat = 1.0
+                highlightedItemView.transform = CGAffineTransform(scaleX: scale, y: scale)
+            }
+        }
     }
 
     private func centerPointAtWindow() -> CGPoint {
@@ -244,7 +245,7 @@ class ItemExplosionMenu: UIView {
         return circle
     }
 
-    private func animateAndRemoveCircleHightlight() {
+    private func animateAndRemoveCircleHighlight() {
         UIView.animate(withDuration: 0.3, animations: {
             let scale: CGFloat = 0.5
             self.circleHighlightView?.transform = CGAffineTransform(scaleX: scale, y: scale)
@@ -283,6 +284,23 @@ class ItemExplosionMenu: UIView {
 
     }
 
+    private func animateIncreaseOfHighlightedItemView(gesture: UILongPressGestureRecognizer) {
+        for (index, view) in itemViews.enumerated() {
+            let location = gesture.location(in: view)
+            if view.point(inside: location, with: nil) {
+                UIView.animate(withDuration: 0.3) {
+                    let scale: CGFloat = 1.2
+                    view.transform = CGAffineTransform(scaleX: scale, y: scale)
+                }
+            } else {
+                UIView.animate(withDuration: 0.1) {
+                    let scale: CGFloat = 1.0
+                    view.transform = CGAffineTransform(scaleX: scale, y: scale)
+                }
+            }
+        }
+    }
+
     private func addCloneViews() {
         guard let window = UIApplication.shared.keyWindow,
               let circleHighlightView = circleHighlightView,
@@ -305,6 +323,18 @@ class ItemExplosionMenu: UIView {
         windowContainerView?.addSubview(cloneContentView)
 
         self.cloneOfContentView = cloneContentView
+    }
+
+    private func highlightedItemViews(gesture: UILongPressGestureRecognizer) -> [UIView] {
+        var highlightedItemViews: [UIView] = []
+        for (index, view) in itemViews.enumerated() {
+            let location = gesture.location(in: view)
+            if view.point(inside: location, with: nil) {
+                highlightedItemViews.append(view)
+            }
+        }
+
+        return highlightedItemViews
     }
 
     private func removeItemViews(completion: @escaping ((Void) -> Void)) {
@@ -338,7 +368,6 @@ class ItemExplosionMenu: UIView {
         self.windowContainerView?.removeFromSuperview()
         self.cloneOfCircleHighlightView?.removeFromSuperview()
         self.cloneOfCircleHighlightView = nil
-
     }
 
     private func animateAndRemoveBackgroundView() {
