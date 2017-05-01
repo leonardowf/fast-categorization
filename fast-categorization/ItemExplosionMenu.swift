@@ -71,10 +71,6 @@ class ItemExplosionMenu: UIView {
         } else if gesture.state == .ended {
             onLongPressEnded()
         } else if gesture.state == .changed {
-            guard let window = UIApplication.shared.keyWindow else {
-                return
-            }
-
             for (index, view) in itemViews.enumerated() {
                 let location = gesture.location(in: view)
                     if view.point(inside: location, with: nil) {
@@ -90,12 +86,7 @@ class ItemExplosionMenu: UIView {
                         view.transform = CGAffineTransform(scaleX: scale, y: scale)
                     }
                 }
-
-
             }
-
-
-
         }
     }
 
@@ -111,7 +102,10 @@ class ItemExplosionMenu: UIView {
         longPressing = false
         animateAndRemoveCircleHightlight()
         animateAndRemoveBackgroundView()
-        removeCloneViews()
+
+        removeItemViews {
+            self.removeCloneViews()
+        }
     }
 
     private func pointAtDegree(zeroPoint: CGPoint, degree: Int, radius: CGFloat) -> CGPoint {
@@ -188,6 +182,7 @@ class ItemExplosionMenu: UIView {
             view.frame = viewFrame
 
             windowContainerView?.addSubview(view)
+            windowContainerView?.sendSubview(toBack: view)
             itemViews.append(view)
 
             UIView.animate(withDuration: 0.4,
@@ -312,6 +307,33 @@ class ItemExplosionMenu: UIView {
         self.cloneOfContentView = cloneContentView
     }
 
+    private func removeItemViews(completion: @escaping ((Void) -> Void)) {
+        let initialPoint = centerPointAtWindow()
+
+        var delay = 0.0
+        for (index, view) in itemViews.enumerated() {
+            UIView.animate(withDuration: 0.2,
+                    delay: delay,
+                    usingSpringWithDamping: 1,
+                    initialSpringVelocity: 0.0,
+                    options: UIViewAnimationOptions.curveLinear, animations: {
+
+                var viewFrame = view.frame
+                var destinationPoint = initialPoint
+                destinationPoint.x -= viewFrame.width / 2
+                destinationPoint.y -= viewFrame.height / 2
+                viewFrame.origin = destinationPoint
+                view.frame = viewFrame
+
+                delay += 0.05
+            }, completion: { finished in
+                if index == self.itemViews.count - 1 {
+                    completion()
+                }
+             })
+        }
+    }
+
     private func removeCloneViews() {
         self.windowContainerView?.removeFromSuperview()
         self.cloneOfCircleHighlightView?.removeFromSuperview()
@@ -325,6 +347,7 @@ class ItemExplosionMenu: UIView {
 
     func contentView() -> UIView {
         let view = UIView(frame: CGRect.zero)
+        view.layer.cornerRadius = self.frame.width / 2
 
         view.backgroundColor = UIColor.blue
 
