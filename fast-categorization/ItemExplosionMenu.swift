@@ -29,6 +29,7 @@ class ItemExplosionMenu: UIView {
     private weak var windowContainerView: UIView?
 
     private var itemViews: [UIView] = []
+    private var accessoryViews: [UIView?] = []
 
     weak var delegate: ItemExplosionMenuDelegate?
     weak var dataSource: ItemExplosionMenuDataSource?
@@ -93,17 +94,56 @@ class ItemExplosionMenu: UIView {
         insertAndAnimateCircleHighlight()
         addAndAnimateBackgroundView()
         addCloneViews()
+        storeAccessoryViews()
         addItemViews()
     }
 
     private func onLongPressChanged(gesture: UILongPressGestureRecognizer) {
         animateIncreaseOfHighlightedItemView(gesture: gesture)
+        displayAccessoryViewForViewAt(gesture: gesture)
+    }
+
+    private func displayAccessoryViewForViewAt(gesture: UILongPressGestureRecognizer) {
+        let h = highlightedItemViews(gesture: gesture)
+
+        var viewToShow: UIView?
+
+        if let first = h.first {
+            for (index, view) in accessoryViews.enumerated() {
+                if index < itemViews.count {
+                    if first == itemViews[index] {
+                        viewToShow = view
+                    }
+                }
+            }
+        }
+
+        let viewsToHide = accessoryViews.flatMap({$0}).filter({$0 != viewToShow})
+        UIView.animate(withDuration: 0.2) {
+            viewsToHide.forEach { view in
+                view.alpha = 0.0
+            }
+
+            viewToShow?.alpha = 1.0
+        }
+
+    }
+
+    private func storeAccessoryViews() {
+        let totalItems = numberOfItems()
+        accessoryViews = []
+        for index in 0..<totalItems {
+            let view = self.accessoryViewForItem(itemIndex: index)
+            view?.alpha = 0.0
+            accessoryViews.append(view)
+        }
     }
 
     private func onLongPressEnded(gesture: UILongPressGestureRecognizer) {
         longPressing = false
         animateAndRemoveCircleHighlight()
         animateHighlightedItemViewBackToNormalSize(gesture: gesture)
+        animateAndRemoveAccessoryViews()
 
         let selectedItemViews = highlightedItemViews(gesture: gesture)
 
@@ -193,6 +233,8 @@ class ItemExplosionMenu: UIView {
         for (index, point) in points.enumerated() {
             let view = viewForItem(itemIndex: index)
 
+            addAccessoryViewFor(index: index, at: point, with: itemSize)
+
             let viewOrigin = CGPoint(x: centerPoint.x - itemSize.width / 2, y: centerPoint.y - itemSize.height / 2)
             var viewFrame = view.frame
             viewFrame.origin = viewOrigin
@@ -219,6 +261,19 @@ class ItemExplosionMenu: UIView {
             })
 
             delay = delay + 0.05
+        }
+    }
+
+    private func addAccessoryViewFor(index: Int, at point: CGPoint, with itemSize: CGSize) {
+        if index < accessoryViews.count {
+            if let view = accessoryViews[index] {
+                var viewFrame = view.frame
+                viewFrame.origin = point
+                viewFrame.origin.y = viewFrame.origin.y - (itemSize.height * 1.2 / 2) - view.frame.height - 5
+                viewFrame.origin.x = viewFrame.origin.x - viewFrame.size.width / 2
+                view.frame = viewFrame
+                windowContainerView?.addSubview(view)
+            }
         }
     }
 
@@ -275,6 +330,19 @@ class ItemExplosionMenu: UIView {
 
             }
         }
+    }
+
+    private func animateAndRemoveAccessoryViews() {
+        UIView.animate(withDuration: 0.2, animations: {
+            self.accessoryViews.forEach { view in
+                view?.alpha = 0.0
+            }
+        }, completion: { finished in
+            if finished {
+                self.accessoryViews = []
+            }
+        })
+
     }
 
     private func addAndAnimateBackgroundView() {
@@ -414,6 +482,13 @@ class ItemExplosionMenu: UIView {
         let view = UIView(frame: viewRect)
         view.backgroundColor = UIColor.purple
         view.layer.cornerRadius = viewRect.size.height / 2
+        return view
+    }
+
+    func accessoryViewForItem(itemIndex: Int) -> UIView? {
+        let rect = CGRect(x: 0, y: 0, width: 100, height: 25)
+        let view = UIView(frame: rect)
+        view.backgroundColor = UIColor.black
         return view
     }
 
