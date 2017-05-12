@@ -23,6 +23,7 @@ class ItemExplosionMenu: UIView {
     private weak var backgroundView: UIView?
 
     private var longPressing = false
+    private var animatingEntrance = false
 
     private var cloneOfCircleHighlightView: UIView?
     private weak var cloneOfContentView: UIView?
@@ -33,6 +34,9 @@ class ItemExplosionMenu: UIView {
 
     weak var delegate: ItemExplosionMenuDelegate?
     weak var dataSource: ItemExplosionMenuDataSource?
+
+    private var animationTimeGuardian: Timer?
+    private var interruptedEntranceAnimation = false
 
     required init?(coder aDecoder: NSCoder) {
         super.init(coder: aDecoder)
@@ -90,6 +94,17 @@ class ItemExplosionMenu: UIView {
     }
 
     private func onLongPressBegan() {
+        if animationTimeGuardian != nil {
+            animationTimeGuardian?.invalidate()
+        }
+
+        animationTimeGuardian = Timer.scheduledTimer(withTimeInterval: 0.3, repeats: false) { (timer) in
+            timer.invalidate()
+            self.animationTimeGuardian = nil
+            self.checkIfTriedToInterruptAnimationGuardian()
+        }
+
+        animatingEntrance = true
         longPressing = true
         insertAndAnimateCircleHighlight()
         addAndAnimateBackgroundView()
@@ -101,6 +116,13 @@ class ItemExplosionMenu: UIView {
     private func onLongPressChanged(gesture: UILongPressGestureRecognizer) {
         animateIncreaseOfHighlightedItemView(gesture: gesture)
         displayAccessoryViewForViewAt(gesture: gesture)
+    }
+
+    private func checkIfTriedToInterruptAnimationGuardian() {
+        if interruptedEntranceAnimation {
+            interruptedEntranceAnimation = false
+            onLongPressEnded(gesture: nil)
+        }
     }
 
     private func displayAccessoryViewForViewAt(gesture: UILongPressGestureRecognizer) {
@@ -139,13 +161,26 @@ class ItemExplosionMenu: UIView {
         }
     }
 
-    private func onLongPressEnded(gesture: UILongPressGestureRecognizer) {
+    private func onLongPressEnded(gesture: UILongPressGestureRecognizer?) {
         longPressing = false
+
+        if animationTimeGuardian != nil {
+            interruptedEntranceAnimation = true
+            return
+        }
+
+        if animatingEntrance {
+//            return
+        }
+        
         animateAndRemoveCircleHighlight()
-        animateHighlightedItemViewBackToNormalSize(gesture: gesture)
         animateAndRemoveAccessoryViews()
 
-        let selectedItemViews = highlightedItemViews(gesture: gesture)
+        var selectedItemViews: [UIView] = []
+        if let gesture = gesture {
+            animateHighlightedItemViewBackToNormalSize(gesture: gesture)
+            selectedItemViews = highlightedItemViews(gesture: gesture)
+        }
 
         removeItemViews {
             self.notifySelectionOfItems(itemViews: selectedItemViews)
@@ -244,20 +279,36 @@ class ItemExplosionMenu: UIView {
             windowContainerView?.sendSubview(toBack: view)
             itemViews.append(view)
 
+            let size = view.frame.size
+            let endPosition = CGPoint(x: point.x - viewFrame.size.width / 2, y: point.y - itemSize.height / 2)
+            let endFrame = CGRect(origin: endPosition, size: size)
+
+            if !longPressing {
+                continue
+            }
+
             UIView.animate(withDuration: 0.4,
                     delay: delay,
                     usingSpringWithDamping: 0.5,
                     initialSpringVelocity: 0.3,
                     options: UIViewAnimationOptions.curveEaseInOut, animations: {
 
-                let size = view.frame.size
-                let endPosition = CGPoint(x: point.x - viewFrame.size.width / 2, y: point.y - itemSize.height / 2)
-                let endFrame = CGRect(origin: endPosition, size: size)
+
+
+                print("[add] view: \(index) at: \(view.frame)")
+                view.frame = viewFrame
+                print("[add] view: \(index) going to : \(viewFrame)")
 
                 view.frame = endFrame
 
             }, completion: { (finished) in
+                if index == points.count - 1 {
+                    self.animatingEntrance = false
 
+                    if !self.longPressing {
+//                        self.onLongPressEnded(gesture: nil)
+                    }
+                }
             })
 
             delay = delay + 0.05
@@ -430,14 +481,19 @@ class ItemExplosionMenu: UIView {
                     delay: delay,
                     usingSpringWithDamping: 1,
                     initialSpringVelocity: 0.0,
-                    options: UIViewAnimationOptions.curveLinear, animations: {
+                    options: UIViewAnimationOptions.beginFromCurrentState, animations: {
 
                 var viewFrame = view.frame
                 var destinationPoint = initialPoint
                 destinationPoint.x -= viewFrame.width / 2
                 destinationPoint.y -= viewFrame.height / 2
                 viewFrame.origin = destinationPoint
+
+                print("[remove] view: \(index) at: \(view.frame)")
                 view.frame = viewFrame
+                print("[remove] view: \(index) going to : \(viewFrame)")
+
+
 
                 delay += 0.05
             }, completion: { finished in
